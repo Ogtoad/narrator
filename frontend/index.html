@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Narrator - AI Voice Chat</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Narration Display Area -->
+        <div id="narration-display" class="narration-display">
+            <div id="narration-text" class="narration-text"></div>
+        </div>
+
+        <!-- Separator Line -->
+        <div class="separator"></div>
+
+        <!-- Chat Input Area -->
+        <div class="chat-input-container">
+            <form id="chat-form" hx-post="/api/narrate" hx-trigger="submit" hx-swap="none">
+                <input 
+                    type="text" 
+                    name="message" 
+                    id="message-input"
+                    class="chat-input" 
+                    placeholder="Type your message..."
+                    autocomplete="off"
+                    required
+                />
+                <button type="submit" class="send-button">Send</button>
+            </form>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="loading hidden">
+            <div class="loading-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+
+        <!-- Hidden audio element for playback -->
+        <audio id="audio-player" style="display: none;"></audio>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
