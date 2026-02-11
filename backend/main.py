@@ -1,23 +1,22 @@
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, StreamingResponse
-from pydantic import BaseModel, Field, validator
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, Field
 import httpx
 import os
 import re
 from dotenv import load_dotenv
 import asyncio
-import json
 import base64
 from gradio_client import Client
 import logging
 from typing import Optional, List
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
 from contextlib import asynccontextmanager
+import orjson
+from fastapi.responses import ORJSONResponse
+from aiocache import cached, Cache
+from aiocache.serializers import PickleSerializer
 
 # Configuration & Constants
 load_dotenv()
@@ -27,49 +26,37 @@ KOKORO_TTS_SPACE = os.getenv("KOKORO_TTS_SPACE", "T0adOG/Kokoro-TTS-cpu")
 KOKORO_VOICE = os.getenv("KOKORO_VOICE", "af_nicole")
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
-# Logging Setup
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Logging Setup - Minimal for performance
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
-
-# Rate Limiting
-limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Validate configuration
     if not OPENROUTER_API_KEY:
-        logger.warning("OPENROUTER_API_KEY is not set. Chat functionality will fail.")
+        logger.warning("OPENROUTER_API_KEY is not set.")
     
-    # Initialize httpx client for reuse
+    # Optimized HTTP Client
+    limits = httpx.Limits(max_keepalive_connections=20, max_connections=100)
     app.state.http_client = httpx.AsyncClient(
         timeout=60.0,
+        limits=limits,
         headers={"HTTP-Referer": "https://github.com/narrator", "X-Title": "Narrator AI"}
     )
     
-    # Initialize Gradio client for reuse
     try:
+        # Gradio client initialization
         app.state.gradio_client = await asyncio.get_event_loop().run_in_executor(
             None, lambda: Client(KOKORO_TTS_SPACE)
         )
-        logger.info(f"Gradio client initialized for space: {KOKORO_TTS_SPACE}")
     except Exception as e:
-        logger.error(f"Failed to initialize Gradio client: {e}")
+        logger.error(f"Gradio init failed: {e}")
         app.state.gradio_client = None
 
     yield
-    
-    # Shutdown
     await app.state.http_client.aclose()
 
-app = FastAPI(title="Narrator API", lifespan=lifespan)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
+app = FastAPI(title="Narrator API", lifespan=lifespan, default_response_class=ORJSONResponse)
 
-# CORS middleware - Restricted in production
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -78,14 +65,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Models with Validation
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=1000)
     model: str = Field(default="xiaomi/mimo-v2-flash")
-
-    @validator('message')
-    def sanitize_message(cls, v):
-        return v.strip()
 
 class NarrateRequest(BaseModel):
     message: Optional[str] = Field(None, max_length=1000)
@@ -101,43 +83,34 @@ class SegmentResponse(BaseModel):
 class NarrateResponse(BaseModel):
     segments: List[SegmentResponse]
 
-# Core Logic
-async def _generate_text(request: ChatRequest, http_client: httpx.AsyncClient) -> str:
+@cached(ttl=3600, cache=Cache.MEMORY, serializer=PickleSerializer(), key_builder=lambda f, *args, **kwargs: f"text:{kwargs['request'].model}:{kwargs['request'].message}")
+async def _generate_text_cached(request: ChatRequest, http_client: httpx.AsyncClient) -> str:
+    return await _generate_text_raw(request, http_client)
+
+async def _generate_text_raw(request: ChatRequest, http_client: httpx.AsyncClient) -> str:
     if not OPENROUTER_API_KEY:
-        raise HTTPException(status_code=503, detail="Chat service unavailable (API key missing)")
+        raise HTTPException(status_code=503, detail="API key missing")
     
-    try:
-        response = await http_client.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
-            json={
-                "model": request.model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a narrator. Respond in short, dramatic sentences. Keep responses concise and impactful, suitable for text-to-speech narration.",
-                    },
-                    {"role": "user", "content": request.message},
-                ],
-                "max_tokens": 500,
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
-    except httpx.HTTPStatusError as e:
-        logger.error(f"OpenRouter API error: {e.response.text}")
-        raise HTTPException(status_code=e.response.status_code, detail="Upstream chat service error")
-    except Exception as e:
-        logger.error(f"Unexpected error in _generate_text: {e}")
-        raise HTTPException(status_code=500, detail="Internal text generation error")
+    response = await http_client.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
+        json={
+            "model": request.model,
+            "messages": [
+                {"role": "system", "content": "You are a narrator. Respond in short, dramatic sentences."},
+                {"role": "user", "content": request.message},
+            ],
+            "max_tokens": 500,
+        },
+    )
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"]
 
 def _split_into_batches(text: str, max_chars: int = 200) -> List[str]:
     normalized = re.sub(r"\s*\n+\s*", " ", text.strip())
     sentences = re.split(r'(?<=[.!?])\s+', normalized)
     batches = []
     current_batch = ""
-    
     for sentence in sentences:
         sentence = sentence.strip()
         if not sentence: continue
@@ -146,26 +119,24 @@ def _split_into_batches(text: str, max_chars: int = 200) -> List[str]:
             current_batch = sentence
         else:
             current_batch = (current_batch + " " + sentence).strip() if current_batch else sentence
-    
     if current_batch:
         batches.append(current_batch)
     return batches
 
 async def _process_tts_batch(client: Client, text: str) -> SegmentResponse:
     try:
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
+        # Gradio client predict is blocking, run in executor
+        result = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: client.predict(
-                text=text,
-                voice=KOKORO_VOICE,
-                speed=1.3, # Increased speed by 30%
-                api_name="/predict"
-            )
+            lambda: client.predict(text=text, voice=KOKORO_VOICE, speed=1.3, api_name="/predict")
         )
-        
-        with open(result, 'rb') as f:
-            audio_data = f.read()
+        # Async file read
+        async with httpx.AsyncClient() as temp_client: # Using httpx for local file read is overkill but works if we want to avoid blocking
+             # Actually just use standard open in executor for simplicity and speed
+             def read_file(path):
+                 with open(path, 'rb') as f:
+                     return f.read()
+             audio_data = await asyncio.get_event_loop().run_in_executor(None, read_file, result)
         
         return SegmentResponse(
             text=text,
@@ -173,51 +144,39 @@ async def _process_tts_batch(client: Client, text: str) -> SegmentResponse:
         )
     except Exception as e:
         logger.error(f"TTS Error: {e}")
-        return SegmentResponse(text=text, audio=None, error="TTS generation failed")
+        return SegmentResponse(text=text, audio=None, error="TTS failed")
 
-# Endpoints
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
-    try:
-        with open("frontend/index.html", "r") as f:
-            return HTMLResponse(content=f.read())
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Frontend not found")
+    with open("frontend/index.html", "r") as f:
+        return HTMLResponse(content=f.read())
 
 @app.post("/api/chat")
-@limiter.limit("10/minute")
-async def chat(request: Request, payload: ChatRequest):
-    text = await _generate_text(payload, request.app.state.http_client)
+async def chat(payload: ChatRequest, request: Request):
+    text = await _generate_text_cached(request=payload, http_client=request.app.state.http_client)
     return {"text": text}
 
-@app.post("/api/narrate", response_model=NarrateResponse)
-@limiter.limit("5/minute")
-async def narrate(request: Request, payload: NarrateRequest):
+@app.post("/api/narrate")
+async def narrate(payload: NarrateRequest, request: Request):
     if payload.text:
         text = payload.text
     elif payload.message:
-        text = await _generate_text(ChatRequest(message=payload.message, model=payload.model), request.app.state.http_client)
+        text = await _generate_text_cached(request=ChatRequest(message=payload.message, model=payload.model), http_client=request.app.state.http_client)
     else:
-        raise HTTPException(status_code=400, detail="Either message or text must be provided")
+        raise HTTPException(status_code=400, detail="Missing input")
     
     batches = _split_into_batches(text)
     client = request.app.state.gradio_client
-    
     if not client:
-        raise HTTPException(status_code=503, detail="TTS service unavailable")
+        raise HTTPException(status_code=503, detail="TTS unavailable")
 
+    # Parallel TTS processing
     tasks = [_process_tts_batch(client, batch) for batch in batches]
     segments = await asyncio.gather(*tasks)
-    
-    return NarrateResponse(segments=segments)
+    return {"segments": segments}
 
-@app.get("/favicon.ico", include_in_schema=False)
-async def favicon():
-    return HTMLResponse(content="", status_code=204)
-
-# Mount static files last to avoid shadowing API routes
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")

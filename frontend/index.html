@@ -10,36 +10,29 @@
     <div class="container">
         <!-- Narration Display Area -->
         <div id="narration-display" class="narration-display">
+            <img id="face-image-bg" src="/static/assets/face.png" alt="Background" class="face-image-bg">
             <div id="narration-text" class="narration-text"></div>
         </div>
 
-        <!-- Separator Line -->
-        <div class="separator"></div>
-
         <!-- Chat Input Area -->
-        <div class="chat-input-container">
-            <form id="chat-form">
-                <input 
-                    type="text" 
-                    name="message" 
-                    id="message-input"
-                    class="chat-input" 
-                    placeholder="Type your message..."
-                    autocomplete="off"
-                    required
-                />
-                <button type="submit" class="send-button">Send</button>
-            </form>
+        <div class="chat-input-wrapper">
+            <img src="/static/assets/pillar.png" alt="Left Pillar" class="pillar-left">
+            <div class="chat-input-container">
+                <form id="chat-form">
+                    <input
+                        type="text"
+                        name="message"
+                        id="message-input"
+                        class="chat-input"
+                        placeholder="Type your message and press Enter..."
+                        autocomplete="off"
+                        required
+                    />
+                </form>
+            </div>
+            <img src="/static/assets/pillarother.png" alt="Right Pillar" class="pillar-right">
         </div>
 
-        <!-- Loading Indicator -->
-        <div id="loading" class="loading hidden">
-            <div class="loading-dots">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-        </div>
 
         <!-- Hidden audio element for playback -->
         <audio id="audio-player" style="display: none;"></audio>

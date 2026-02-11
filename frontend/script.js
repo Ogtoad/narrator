@@ -8,7 +8,7 @@ class NarratorSync {
             audioPlayer: document.getElementById('audio-player'),
             narrationText: document.getElementById('narration-text'),
             messageInput: document.getElementById('message-input'),
-            loading: document.getElementById('loading'),
+            faceImage: document.getElementById('face-image-bg'),
             form: document.getElementById('chat-form')
         };
 
@@ -20,7 +20,8 @@ class NarratorSync {
             lastWordIndex: -1,
             requestInFlight: false,
             currentAudioUrl: null,
-            abortController: null
+            abortController: null,
+            isAudioPlaying: false
         };
         
         this.init();
@@ -47,9 +48,21 @@ class NarratorSync {
             this.handleSubmit();
         });
 
-        this.elements.audioPlayer.addEventListener('play', () => this.startWordSync());
-        this.elements.audioPlayer.addEventListener('pause', () => this.stopWordSync());
-        this.elements.audioPlayer.addEventListener('ended', () => this.stopWordSync());
+        this.elements.audioPlayer.addEventListener('play', () => {
+            this.state.isAudioPlaying = true;
+            this.updateFaceState();
+            this.startWordSync();
+        });
+        this.elements.audioPlayer.addEventListener('pause', () => {
+            this.state.isAudioPlaying = false;
+            this.updateFaceState();
+            this.stopWordSync();
+        });
+        this.elements.audioPlayer.addEventListener('ended', () => {
+            this.state.isAudioPlaying = false;
+            this.updateFaceState();
+            this.stopWordSync();
+        });
         
         // Handle potential audio errors
         this.elements.audioPlayer.addEventListener('error', (e) => {
@@ -114,10 +127,24 @@ class NarratorSync {
         this.state.requestInFlight = isLoading;
         this.elements.messageInput.disabled = isLoading;
         if (isLoading) {
-            this.elements.loading.classList.remove('hidden');
+            this.elements.faceImage.classList.add('loading');
+            this.elements.faceImage.classList.remove('playing', 'idle');
             this.elements.messageInput.value = '';
         } else {
-            this.elements.loading.classList.add('hidden');
+            this.elements.faceImage.classList.remove('loading');
+            this.updateFaceState();
+        }
+    }
+
+    updateFaceState() {
+        if (!this.elements.faceImage) return;
+        
+        if (this.state.isAudioPlaying) {
+            this.elements.faceImage.classList.add('playing');
+            this.elements.faceImage.classList.remove('idle');
+        } else {
+            this.elements.faceImage.classList.add('idle');
+            this.elements.faceImage.classList.remove('playing');
         }
     }
 
