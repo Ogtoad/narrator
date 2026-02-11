@@ -32,8 +32,8 @@ body {
 
 .face-image-bg {
     position: absolute;
-    width: 300px;
-    height: 300px;
+    width: min(300px, 60vw);
+    height: min(300px, 60vw);
     opacity: 0.08;
     z-index: 0;
     animation: float 12s ease-in-out infinite;
@@ -54,10 +54,12 @@ body {
 
 .narration-text {
     font-family: 'Courier New', Courier, monospace;
-    font-size: 1.125rem;
+    font-size: clamp(0.875rem, 2.5vw, 1.125rem);
     line-height: 1.6;
     text-align: center;
     max-width: 900px;
+    width: 100%;
+    padding: 0 1rem;
     opacity: 0;
     transform: translateY(20px);
     transition: opacity 0.5s ease, transform 0.5s ease;
@@ -92,13 +94,13 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 3rem;
-    padding: 2rem;
+    gap: clamp(0.5rem, 3vw, 3rem);
+    padding: clamp(0.75rem, 2vw, 2rem);
 }
 
 .pillar-left,
 .pillar-right {
-    height: 500px;
+    height: clamp(120px, 40vh, 500px);
     width: auto;
     object-fit: contain;
     opacity: 0.6;
@@ -108,6 +110,7 @@ body {
 .chat-input-container {
     flex: 1;
     max-width: 800px;
+    min-width: 0;
     background: transparent;
 }
 
@@ -120,7 +123,7 @@ body {
     background: transparent;
     border: none;
     color: #ffffff;
-    font-size: 1.1rem;
+    font-size: clamp(0.875rem, 2.5vw, 1.1rem);
     padding: 0.75rem 0;
     outline: none;
     text-align: center;
@@ -242,8 +245,13 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    .narration-display {
+        padding: 1.5rem 1rem;
+    }
+
     .narration-text {
-        font-size: 1.8rem;
+        font-size: clamp(0.85rem, 3vw, 1.05rem);
+        letter-spacing: 0.25px;
     }
 
     .chat-input {
@@ -257,18 +265,103 @@ body {
     .send-button {
         width: 100%;
     }
+
+    .face-image-bg {
+        width: min(220px, 55vw);
+        height: min(220px, 55vw);
+    }
+
+    .face-image {
+        width: 80px;
+        height: 80px;
+    }
+
+    .loading-dots span {
+        width: 10px;
+        height: 10px;
+    }
 }
 
 @media (max-width: 480px) {
-    .narration-text {
-        font-size: 1.4rem;
-    }
-
     .narration-display {
-        padding: 1rem;
+        padding: 1rem 0.5rem;
     }
 
-    .chat-input-container {
-        padding: 1rem;
+    .narration-text {
+        font-size: clamp(0.8rem, 3.5vw, 0.95rem);
+        line-height: 1.5;
+        padding: 0 0.5rem;
+    }
+
+    .chat-input-wrapper {
+        gap: 0.25rem;
+        padding: 0.5rem;
+    }
+
+    .pillar-left,
+    .pillar-right {
+        height: clamp(80px, 25vh, 150px);
+    }
+
+    .chat-input {
+        font-size: 0.9rem;
+        padding: 0.5rem 0;
+    }
+
+    .chat-input::placeholder {
+        font-size: 0.8rem;
+    }
+
+    .face-image-bg {
+        width: min(160px, 50vw);
+        height: min(160px, 50vw);
+    }
+
+    .face-image {
+        width: 60px;
+        height: 60px;
+    }
+
+    .loading-dots span {
+        width: 8px;
+        height: 8px;
+    }
+}
+
+/* Very small screens (e.g. iPhone SE, Galaxy Fold) */
+@media (max-width: 360px) {
+    .pillar-left,
+    .pillar-right {
+        height: clamp(60px, 20vh, 100px);
+    }
+
+    .narration-text {
+        font-size: 0.8rem;
+        line-height: 1.4;
+    }
+
+    .chat-input {
+        font-size: 0.85rem;
+    }
+}
+
+/* Landscape on mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+    .narration-display {
+        padding: 0.5rem;
+    }
+
+    .pillar-left,
+    .pillar-right {
+        height: clamp(60px, 30vh, 120px);
+    }
+
+    .chat-input-wrapper {
+        padding: 0.5rem;
+    }
+
+    .face-image-bg {
+        width: min(120px, 30vw);
+        height: min(120px, 30vw);
     }
 }
