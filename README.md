@@ -47,7 +47,6 @@ narrator/
 
 - Python 3.8+
 - OpenRouter API key ([Get one here](https://openrouter.ai/))
-- HuggingFace API key ([Get one here](https://huggingface.co/settings/tokens))
 
 ### Installation
 
@@ -69,16 +68,16 @@ narrator/
    ```
 
 4. **Configure environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit [`.env`](.env:1) and add your API keys:
-   ```env
-   OPENROUTER_API_KEY=your_openrouter_api_key_here
-   HF_API_KEY=your_huggingface_api_key_here
-   KOKORO_TTS_URL=https://api-inference.huggingface.co/models/hexgrad/Kokoro-82M
-   ```
+    ```bash
+    cp .env.example .env
+    ```
+    
+    Edit [`.env`](.env:1) and add your API keys:
+    ```env
+    OPENROUTER_API_KEY=your_openrouter_api_key_here
+    KOKORO_TTS_SPACE=T0adOG/Kokoro-TTS-cpu
+    KOKORO_VOICE=af_nicole
+    ```
 
 ### Running the Application
 
@@ -161,8 +160,7 @@ curl -X POST http://localhost:8000/api/chat \
 ## Troubleshooting
 
 ### Audio Not Playing
-- Check that your HuggingFace API key is valid
-- Ensure the Kokoro TTS model is accessible
+- Ensure the Kokoro TTS Gradio space is accessible
 - Check browser console for errors
 
 ### Text Generation Fails

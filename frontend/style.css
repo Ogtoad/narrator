@@ -49,7 +49,7 @@ body {
 }
 
 .narration-text.word-highlight {
-    animation: wordPulse 0.3s ease;
+    animation: wordPulse 0.2s ease;
 }
 
 @keyframes wordPulse {
@@ -178,19 +178,19 @@ body {
 .word {
     display: inline-block;
     opacity: 0;
-    animation: fadeInWord 0.3s ease forwards;
+    transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
-@keyframes fadeInWord {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.word.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
+
+.word.current {
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+}
+
 
 /* Responsive Design */
 @media (max-width: 768px) {
