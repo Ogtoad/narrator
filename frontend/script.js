@@ -53,10 +53,16 @@ class NarratorSync {
             });
 
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response not OK:', response.status, errorText);
                 throw new Error('Failed to get narration');
             }
 
             const data = await response.json();
+            console.log('Received data:', data);
+            console.log('Data keys:', Object.keys(data));
+            console.log('Audio field:', data.audio);
+            console.log('Error field:', data.error);
             
             this.hideLoading();
             
@@ -77,29 +83,50 @@ class NarratorSync {
         this.currentText = text;
         this.words = text.split(/\s+/);
         
-        // Show text immediately
-        this.narrationText.textContent = text;
-        this.narrationText.classList.add('active');
+        console.log('Display narration called');
+        console.log('Text:', text);
+        console.log('Has audio:', !!audioBase64);
+        console.log('Audio type:', audioType);
 
-        // If audio is available, play it with sync
+        // Only show text when audio is available and playing
         if (audioBase64) {
             try {
                 // Convert base64 to blob
                 const audioBlob = this.base64ToBlob(audioBase64, audioType);
                 const audioUrl = URL.createObjectURL(audioBlob);
                 
-                this.audioPlayer.src = audioUrl;
-                await this.audioPlayer.play();
+                console.log('Audio URL created:', audioUrl);
                 
-                // Calculate word timings based on audio duration
-                this.audioPlayer.addEventListener('loadedmetadata', () => {
-                    this.calculateWordTimings();
-                }, { once: true });
+                this.audioPlayer.src = audioUrl;
+                
+                // Wait for audio to load
+                await new Promise((resolve, reject) => {
+                    this.audioPlayer.addEventListener('loadedmetadata', () => {
+                        console.log('Audio loaded, duration:', this.audioPlayer.duration);
+                        this.calculateWordTimings();
+                        resolve();
+                    }, { once: true });
+                    
+                    this.audioPlayer.addEventListener('error', (e) => {
+                        console.error('Audio load error:', e);
+                        reject(e);
+                    }, { once: true });
+                });
+                
+                // Now play audio and show text
+                await this.audioPlayer.play();
+                console.log('Audio playing');
                 
             } catch (error) {
                 console.error('Audio playback error:', error);
-                // Text is already displayed, so just continue
+                this.showError('Failed to play audio. Showing text only.');
+                // Fallback: show text without audio
+                this.narrationText.textContent = text;
+                this.narrationText.classList.add('active');
             }
+        } else {
+            console.error('No audio data received');
+            this.showError('No audio generated. Check TTS configuration.');
         }
     }
 

@@ -8,6 +8,8 @@ import os
 from dotenv import load_dotenv
 import asyncio
 import json
+import base64
+from gradio_client import Client
 
 load_dotenv()
 
@@ -26,8 +28,8 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-KOKORO_TTS_URL = os.getenv("KOKORO_TTS_URL", "https://api-inference.huggingface.co/models/hexgrad/Kokoro-82M")
-HF_API_KEY = os.getenv("HF_API_KEY")
+KOKORO_TTS_SPACE = os.getenv("KOKORO_TTS_SPACE", "T0adOG/Kokoro-TTS-cpu")
+KOKORO_VOICE = os.getenv("KOKORO_VOICE", "af_nicole")  # Nicole voice
 
 
 class ChatRequest(BaseModel):
@@ -92,42 +94,38 @@ async def chat(request: ChatRequest):
 @app.post("/api/tts")
 async def text_to_speech(text: str):
     """
-    Convert text to speech using Kokoro TTS on HuggingFace
-    Voice: Bella (af_bella)
+    Convert text to speech using Kokoro TTS via Gradio
+    Voice: Nicole (af_nicole)
     """
-    if not HF_API_KEY:
-        raise HTTPException(status_code=500, detail="HuggingFace API key not configured")
-    
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            # Kokoro TTS API call with Bella voice
-            response = await client.post(
-                KOKORO_TTS_URL,
-                headers={
-                    "Authorization": f"Bearer {HF_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "inputs": text,
-                    "parameters": {
-                        "voice": "af_bella",  # Bella voice
-                        "speed": 1.0,
-                        "lang": "en-us"
-                    }
-                }
-            )
-            response.raise_for_status()
+        print(f"TTS Request - Text: {text}, Voice: {KOKORO_VOICE}")
+        
+        # Use Gradio client to call the TTS API
+        client = Client(KOKORO_TTS_SPACE)
+        result = client.predict(
+            text=text,
+            voice=KOKORO_VOICE,
+            speed=1.0,
+            api_name="/predict"
+        )
+        
+        print(f"TTS Result: {result}")
+        
+        # Result is a filepath, read the audio file
+        with open(result, 'rb') as audio_file:
+            audio_data = audio_file.read()
+        
+        # Return audio as streaming response
+        return StreamingResponse(
+            iter([audio_data]),
+            media_type="audio/wav",
+            headers={
+                "Content-Disposition": "attachment; filename=narration.wav"
+            }
+        )
             
-            # Return audio as streaming response
-            return StreamingResponse(
-                iter([response.content]),
-                media_type="audio/wav",
-                headers={
-                    "Content-Disposition": "attachment; filename=narration.wav"
-                }
-            )
-            
-    except httpx.HTTPError as e:
+    except Exception as e:
+        print(f"TTS Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"TTS API error: {str(e)}")
 
 
@@ -136,56 +134,71 @@ async def narrate(request: ChatRequest):
     """
     Combined endpoint: Generate text and audio
     Returns both text and audio data
-    Voice: Bella (af_bella)
+    Voice: Nicole (af_nicole)
     """
+    print(f"Received narrate request: {request}")
+    print(f"Message: {request.message}, Model: {request.model}")
+    
     # Get text response
     chat_response = await chat(request)
     text = chat_response["text"]
+    print(f"Generated text: {text}")
     
-    # Generate audio
-    if not HF_API_KEY:
-        return {
-            "text": text,
-            "audio": None,
-            "error": "TTS not configured"
-        }
-    
+    # Generate audio using Gradio client
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            # Kokoro TTS API call with Bella voice
-            response = await client.post(
-                KOKORO_TTS_URL,
-                headers={
-                    "Authorization": f"Bearer {HF_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "inputs": text,
-                    "parameters": {
-                        "voice": "af_bella",  # Bella voice
-                        "speed": 1.0,
-                        "lang": "en-us"
-                    }
-                }
-            )
-            response.raise_for_status()
+        print(f"TTS Request - Text: {text}, Voice: {KOKORO_VOICE}, Space: {KOKORO_TTS_SPACE}")
+        
+        # Run Gradio client in executor since it's blocking
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: _generate_tts(text, KOKORO_VOICE, KOKORO_TTS_SPACE)
+        )
+        
+        print(f"TTS Result filepath: {result}")
+        
+        # Result is a filepath, read the audio file
+        with open(result, 'rb') as audio_file:
+            audio_data = audio_file.read()
+        
+        # Convert audio to base64 for embedding
+        audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+        
+        print(f"Audio generated successfully, size: {len(audio_data)} bytes")
+        
+        response_data = {
+            "text": text,
+            "audio": audio_base64,
+            "audio_type": "audio/wav"
+        }
+        print(f"Returning response with audio: {len(audio_base64)} chars")
+        return response_data
             
-            # Convert audio to base64 for embedding
-            import base64
-            audio_base64 = base64.b64encode(response.content).decode('utf-8')
-            
-            return {
-                "text": text,
-                "audio": audio_base64,
-                "audio_type": "audio/wav"
-            }
-            
-    except httpx.HTTPError as e:
+    except Exception as e:
+        import traceback
+        print(f"TTS Error: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
         return {
             "text": text,
             "audio": None,
             "error": f"TTS error: {str(e)}"
         }
+
+
+def _generate_tts(text: str, voice: str, space: str) -> str:
+    """Helper function to generate TTS using Gradio client"""
+    try:
+        client = Client(space)
+        result = client.predict(
+            text=text,
+            voice=voice,
+            speed=1.0,
+            api_name="/predict"
+        )
+        return result
+    except Exception as e:
+        print(f"Gradio client error: {str(e)}")
+        raise
 
 
 if __name__ == "__main__":
