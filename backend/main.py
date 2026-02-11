@@ -25,6 +25,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 KOKORO_TTS_SPACE = os.getenv("KOKORO_TTS_SPACE", "T0adOG/Kokoro-TTS-cpu")
 KOKORO_VOICE = os.getenv("KOKORO_VOICE", "af_nicole")
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "nvidia/nemotron-3-nano-30b-a3b:free")
 
 # Logging Setup - Minimal for performance
 logging.basicConfig(level=logging.WARNING)
@@ -65,14 +66,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=1000)
-    model: str = Field(default="xiaomi/mimo-v2-flash")
-
 class NarrateRequest(BaseModel):
     message: Optional[str] = Field(None, max_length=1000)
     text: Optional[str] = Field(None, max_length=2000)
-    model: str = Field(default="xiaomi/mimo-v2-flash")
 
 class SegmentResponse(BaseModel):
     text: str
@@ -83,11 +79,11 @@ class SegmentResponse(BaseModel):
 class NarrateResponse(BaseModel):
     segments: List[SegmentResponse]
 
-@cached(ttl=3600, cache=Cache.MEMORY, serializer=PickleSerializer(), key_builder=lambda f, *args, **kwargs: f"text:{kwargs['request'].model}:{kwargs['request'].message}")
-async def _generate_text_cached(request: ChatRequest, http_client: httpx.AsyncClient) -> str:
-    return await _generate_text_raw(request, http_client)
+@cached(ttl=3600, cache=Cache.MEMORY, serializer=PickleSerializer(), key_builder=lambda f, *args, **kwargs: f"text:{kwargs['message']}")
+async def _generate_text_cached(message: str, http_client: httpx.AsyncClient) -> str:
+    return await _generate_text_raw(message, http_client)
 
-async def _generate_text_raw(request: ChatRequest, http_client: httpx.AsyncClient) -> str:
+async def _generate_text_raw(message: str, http_client: httpx.AsyncClient) -> str:
     if not OPENROUTER_API_KEY:
         raise HTTPException(status_code=503, detail="API key missing")
     
@@ -95,10 +91,10 @@ async def _generate_text_raw(request: ChatRequest, http_client: httpx.AsyncClien
         "https://openrouter.ai/api/v1/chat/completions",
         headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
         json={
-            "model": request.model,
+            "model": DEFAULT_MODEL,
             "messages": [
                 {"role": "system", "content": "You are a narrator. Respond in short, dramatic sentences."},
-                {"role": "user", "content": request.message},
+                {"role": "user", "content": message},
             ],
             "max_tokens": 500,
         },
@@ -151,17 +147,12 @@ async def read_root():
     with open("frontend/index.html", "r") as f:
         return HTMLResponse(content=f.read())
 
-@app.post("/api/chat")
-async def chat(payload: ChatRequest, request: Request):
-    text = await _generate_text_cached(request=payload, http_client=request.app.state.http_client)
-    return {"text": text}
-
 @app.post("/api/narrate")
 async def narrate(payload: NarrateRequest, request: Request):
     if payload.text:
         text = payload.text
     elif payload.message:
-        text = await _generate_text_cached(request=ChatRequest(message=payload.message, model=payload.model), http_client=request.app.state.http_client)
+        text = await _generate_text_cached(message=payload.message, http_client=request.app.state.http_client)
     else:
         raise HTTPException(status_code=400, detail="Missing input")
     

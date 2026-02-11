@@ -37,7 +37,6 @@ narrator/
 ├── .env.example          # Example environment variables
 ├── .gitignore           # Git ignore rules
 ├── requirements.txt      # Python dependencies
-├── to-do.md             # Project requirements
 └── README.md            # This file
 ```
 
@@ -46,6 +45,7 @@ narrator/
 ### Prerequisites
 
 - Python 3.8+
+- You'll need an access key to Huggingface to make api calls. I asume.
 - OpenRouter API key ([Get one here](https://openrouter.ai/))
 
 ### Installation

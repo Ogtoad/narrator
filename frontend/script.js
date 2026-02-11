@@ -87,7 +87,7 @@ class NarratorSync {
             // Combined endpoint is faster than two separate calls
             const narrateData = await this.fetchApi('/api/narrate', {
                 method: 'POST',
-                body: JSON.stringify({ message, model: 'xiaomi/mimo-v2-flash' }),
+                body: JSON.stringify({ message }),
                 signal: this.state.abortController.signal
             });
 
