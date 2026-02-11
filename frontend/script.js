@@ -77,6 +77,9 @@ class NarratorSync {
         const message = this.elements.messageInput.value.trim();
         if (!message || this.state.requestInFlight) return;
 
+        // Fire the letter-dissolve animation before clearing the input
+        this.animateInputToFace(message);
+
         this.setLoadingState(true);
         this.clearNarration();
         
@@ -320,6 +323,74 @@ class NarratorSync {
         this.elements.audioPlayer.load(); // Force reset
         this.state.words = [];
         this.state.wordTimings = [];
+    }
+
+    /**
+     * Animates the submitted input text: each letter shrinks, fades, and
+     * flies toward the face image position.
+     */
+    animateInputToFace(text) {
+        const inputRect = this.elements.messageInput.getBoundingClientRect();
+        const faceRect = this.elements.faceImage.getBoundingClientRect();
+
+        // Target center of the face image
+        const targetX = faceRect.left + faceRect.width / 2;
+        const targetY = faceRect.top + faceRect.height / 2;
+
+        // Source center of the input field
+        const sourceX = inputRect.left + inputRect.width / 2;
+        const sourceY = inputRect.top + inputRect.height / 2;
+
+        // Create overlay positioned exactly where the input text is
+        const overlay = document.createElement('div');
+        overlay.className = 'input-animation-overlay';
+        overlay.style.left = `${inputRect.left}px`;
+        overlay.style.top = `${inputRect.top}px`;
+        overlay.style.width = `${inputRect.width}px`;
+        overlay.style.height = `${inputRect.height}px`;
+        overlay.style.alignItems = 'center';
+        overlay.style.fontSize = getComputedStyle(this.elements.messageInput).fontSize;
+        overlay.style.fontFamily = getComputedStyle(this.elements.messageInput).fontFamily;
+
+        // Per-letter dx/dy from the overlay center to the face center
+        const dx = targetX - sourceX;
+        const dy = targetY - sourceY;
+
+        const totalDuration = 1.4; // seconds per letter animation
+        const maxStagger = 0.8;    // max total stagger spread across all letters
+        const letters = text.split('');
+
+        // Generate pseudo-random delays using a seeded shuffle approach
+        // so letters disappear in a seemingly random order
+        const indices = letters.map((_, i) => i);
+        for (let j = indices.length - 1; j > 0; j--) {
+            const k = Math.floor(Math.random() * (j + 1));
+            [indices[j], indices[k]] = [indices[k], indices[j]];
+        }
+        // Map shuffled position to delay: the letter at shuffled rank 0 goes first, etc.
+        const delayMap = new Array(letters.length);
+        indices.forEach((originalIndex, rank) => {
+            delayMap[originalIndex] = (rank / Math.max(letters.length - 1, 1)) * maxStagger;
+        });
+
+        letters.forEach((char, i) => {
+            const span = document.createElement('span');
+            span.className = 'anim-letter';
+            span.textContent = char === ' ' ? '\u00A0' : char;
+
+            span.style.setProperty('--letter-delay', `${delayMap[i]}s`);
+            span.style.setProperty('--anim-duration', `${totalDuration}s`);
+            span.style.setProperty('--dx', `${dx}px`);
+            span.style.setProperty('--dy', `${dy}px`);
+
+            overlay.appendChild(span);
+        });
+
+        document.body.appendChild(overlay);
+
+        // Remove overlay after all animations complete
+        const cleanupTime = (totalDuration + maxStagger + 0.1) * 1000;
+        setTimeout(() => overlay.remove(), cleanupTime);
     }
 
     showError(message) {

@@ -134,6 +134,40 @@ body {
     text-align: center;
 }
 
+/* Input text send animation */
+.input-animation-overlay {
+    position: fixed;
+    pointer-events: none;
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    white-space: pre;
+}
+
+.input-animation-overlay .anim-letter {
+    display: inline-block;
+    color: #ffffff;
+    font-family: inherit;
+    animation: letterDissolve var(--anim-duration, 0.7s) ease-in forwards;
+    animation-delay: var(--letter-delay, 0s);
+    opacity: 1;
+}
+
+@keyframes letterDissolve {
+    0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+    }
+    60% {
+        opacity: 0.5;
+        transform: translate(var(--dx), calc(var(--dy) * 0.6)) scale(0.6);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(var(--dx), var(--dy)) scale(0);
+    }
+}
+
 .send-button:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.6);
