@@ -1,21 +1,23 @@
+# fly.toml app configuration file generated for narrator-fiffyw on 2026-02-11T04:37:48Z
+#
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "narrator"
-primary_region = "arn"
+app = 'narrator-fiffyw'
+primary_region = 'ams'
 
 [build]
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
+  processes = ['app']
 
-[checks]
-  [checks.health]
-    type = "http"
-    port = 8080
-    path = "/"
-    interval = "30s"
-    timeout = "5s"
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256
