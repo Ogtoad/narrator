@@ -47,3 +47,6 @@ htmlcov/
 
 # Node modules (if any frontend tooling is added)
 node_modules/
+
+# Docker
+*.tar
