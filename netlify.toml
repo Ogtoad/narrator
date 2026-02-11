@@ -4,3 +4,8 @@
 
 [build.environment]
   PYTHON_VERSION = "3.11"
+  # Exclude non-secret config vars from secrets scanning.
+  # Their values appear in source as defaults (main.py, .env.example, README).
+  # Actual secrets (HF_API_KEY, OPENROUTER_API_KEY) should only be set in
+  # the Netlify UI and must NOT appear in repo files.
+  SECRETS_SCAN_OMIT_KEYS = "DEFAULT_MODEL,KOKORO_TTS_URL,KOKORO_TTS_SPACE,KOKORO_VOICE,PYTHON_VERSION"
