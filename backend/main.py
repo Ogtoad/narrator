@@ -13,7 +13,6 @@ from gradio_client import Client
 import logging
 from typing import Optional, List
 from contextlib import asynccontextmanager
-import orjson
 from fastapi.responses import ORJSONResponse
 from aiocache import cached, Cache
 from aiocache.serializers import PickleSerializer
@@ -96,7 +95,7 @@ async def _generate_text_raw(message: str, http_client: httpx.AsyncClient) -> st
                 {"role": "system", "content": "You are a narrator. Respond in short, dramatic sentences."},
                 {"role": "user", "content": message},
             ],
-            "max_tokens": 500,
+            "max_tokens": 700,
         },
     )
     response.raise_for_status()
