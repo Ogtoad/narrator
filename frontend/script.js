@@ -48,7 +48,7 @@ class NarratorSync {
                 },
                 body: JSON.stringify({
                     message: message,
-                    model: 'anthropic/claude-3.5-sonnet'
+                    model: 'xiaomi/mimo-v2-flash'
                 })
             });
 
