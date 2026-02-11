@@ -97,7 +97,7 @@ narrator/
 ## Usage
 
 1. Type your message in the input box at the bottom of the screen
-2. Press "Send" or hit Enter
+2.  hit Enter
 3. Watch as the AI generates a narrator-style response
 4. The text appears in the center of the screen
 5. Audio narration plays automatically, synchronized with the text display
