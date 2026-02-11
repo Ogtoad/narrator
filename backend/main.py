@@ -32,7 +32,7 @@ HF_API_KEY = os.getenv("HF_API_KEY")
 
 class ChatRequest(BaseModel):
     message: str
-    model: str = "anthropic/claude-3.5-sonnet"
+    model: str = "xiaomi/mimo-v2-flash"
 
 
 class NarratorResponse(BaseModel):
@@ -93,12 +93,14 @@ async def chat(request: ChatRequest):
 async def text_to_speech(text: str):
     """
     Convert text to speech using Kokoro TTS on HuggingFace
+    Voice: Bella (af_bella)
     """
     if not HF_API_KEY:
         raise HTTPException(status_code=500, detail="HuggingFace API key not configured")
     
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            # Kokoro TTS API call with Bella voice
             response = await client.post(
                 KOKORO_TTS_URL,
                 headers={
@@ -107,6 +109,11 @@ async def text_to_speech(text: str):
                 },
                 json={
                     "inputs": text,
+                    "parameters": {
+                        "voice": "af_bella",  # Bella voice
+                        "speed": 1.0,
+                        "lang": "en-us"
+                    }
                 }
             )
             response.raise_for_status()
@@ -129,6 +136,7 @@ async def narrate(request: ChatRequest):
     """
     Combined endpoint: Generate text and audio
     Returns both text and audio data
+    Voice: Bella (af_bella)
     """
     # Get text response
     chat_response = await chat(request)
@@ -143,7 +151,8 @@ async def narrate(request: ChatRequest):
         }
     
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            # Kokoro TTS API call with Bella voice
             response = await client.post(
                 KOKORO_TTS_URL,
                 headers={
@@ -152,6 +161,11 @@ async def narrate(request: ChatRequest):
                 },
                 json={
                     "inputs": text,
+                    "parameters": {
+                        "voice": "af_bella",  # Bella voice
+                        "speed": 1.0,
+                        "lang": "en-us"
+                    }
                 }
             )
             response.raise_for_status()
