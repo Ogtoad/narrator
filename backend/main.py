@@ -92,10 +92,10 @@ async def _generate_text_raw(message: str, http_client: httpx.AsyncClient) -> st
         json={
             "model": DEFAULT_MODEL,
             "messages": [
-                {"role": "system", "content": "You are a narrator. Respond in short, dramatic sentences."},
+                {"role": "system", "content": "You are a narrator. Respond in poetic, enigmatic sentences of short to medium length. Do not use asterisks or other special formatting."},
                 {"role": "user", "content": message},
             ],
-            "max_tokens": 700,
+            "max_tokens": 400,
         },
     )
     response.raise_for_status()

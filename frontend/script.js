@@ -28,9 +28,11 @@ class NarratorSync {
     }
 
     init() {
-        if (!this.validateElements()) return;
-        this.initializeEventListeners();
-    }
+         if (!this.validateElements()) return;
+         this.initializeEventListeners();
+         this.elements.faceImage.classList.add('idle');
+         this.elements.messageInput.focus();
+     }
 
     validateElements() {
         for (const [key, el] of Object.entries(this.elements)) {
@@ -71,11 +73,78 @@ class NarratorSync {
             console.error('Audio element error:', e);
             this.showError('Audio playback error occurred.');
         });
+
+        // --- Aggressive input focus management ---
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        // Refocus input whenever it loses focus (unless it's disabled)
+        this.elements.messageInput.addEventListener('blur', () => {
+            if (!this.elements.messageInput.disabled) {
+                // On touch devices, use a longer delay to avoid fighting the virtual keyboard
+                const delay = isTouchDevice ? 150 : 0;
+                setTimeout(() => {
+                    if (!this.elements.messageInput.disabled) {
+                        this.elements.messageInput.focus({ preventScroll: true });
+                    }
+                }, delay);
+            }
+        });
+
+        // Capture any keydown on the document and redirect to input
+        document.addEventListener('keydown', (e) => {
+            const input = this.elements.messageInput;
+            // Skip if input is disabled or if it's a modifier-only key
+            if (input.disabled) return;
+            // Don't intercept browser shortcuts (Ctrl/Cmd + key, except common typing combos)
+            if ((e.ctrlKey || e.metaKey) && !['a', 'c', 'v', 'x', 'z'].includes(e.key.toLowerCase())) return;
+
+            if (document.activeElement !== input) {
+                input.focus();
+                // For printable characters, the focus will capture the keystroke naturally
+            }
+        });
+
+        // Refocus after any click/tap anywhere on the page
+        document.addEventListener('click', () => {
+            if (!this.elements.messageInput.disabled) {
+                this.elements.messageInput.focus({ preventScroll: true });
+            }
+        });
+
+        // Refocus when tab becomes visible again
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && !this.elements.messageInput.disabled) {
+                this.elements.messageInput.focus({ preventScroll: true });
+            }
+        });
+
+        // Refocus after touch events (mobile) — slightly delayed to let touch events settle
+        document.addEventListener('touchend', () => {
+            if (!this.elements.messageInput.disabled) {
+                setTimeout(() => {
+                    this.elements.messageInput.focus({ preventScroll: true });
+                }, 100);
+            }
+        });
+
+        // On mobile, refocus when the virtual keyboard is dismissed (resize event)
+        if (isTouchDevice) {
+            window.addEventListener('resize', () => {
+                if (!this.elements.messageInput.disabled) {
+                    setTimeout(() => {
+                        this.elements.messageInput.focus({ preventScroll: true });
+                    }, 100);
+                }
+            });
+        }
     }
 
     async handleSubmit() {
         const message = this.elements.messageInput.value.trim();
         if (!message || this.state.requestInFlight) return;
+
+        // Remove placeholder after first submission
+        this.elements.messageInput.placeholder = '';
 
         // Fire the letter-dissolve animation before clearing the input
         this.animateInputToFace(message);
@@ -136,6 +205,8 @@ class NarratorSync {
         } else {
             this.elements.faceImage.classList.remove('loading');
             this.updateFaceState();
+            // Re-focus input as soon as it's re-enabled
+            this.elements.messageInput.focus();
         }
     }
 
@@ -162,6 +233,84 @@ class NarratorSync {
             if (this.state.abortController?.signal.aborted) break;
             await this.playSegment(segment);
         }
+
+        // Fade out text and face after all segments finish
+        this.fadeOutNarration();
+    }
+
+    fadeOutNarration() {
+        // After a brief pause, dissolve the narration text letter by letter
+        setTimeout(() => {
+            const container = this.elements.narrationText;
+            const wordSpans = container.querySelectorAll('.word');
+
+            // Collect all visible text, then rebuild as individual letter spans
+            const letters = [];
+            wordSpans.forEach((wordSpan, wordIdx) => {
+                const text = wordSpan.textContent;
+                for (const char of text) {
+                    const span = document.createElement('span');
+                    span.className = 'fade-letter';
+                    span.textContent = char;
+                    letters.push(span);
+                }
+                // Add a space between words (except after the last word)
+                if (wordIdx < wordSpans.length - 1) {
+                    const space = document.createElement('span');
+                    space.className = 'fade-letter';
+                    space.textContent = '\u00A0';
+                    letters.push(space);
+                }
+            });
+
+            // If no letters found (e.g. static text without word spans), split the raw text
+            if (letters.length === 0) {
+                const rawText = container.textContent;
+                for (const char of rawText) {
+                    const span = document.createElement('span');
+                    span.className = 'fade-letter';
+                    span.textContent = char === ' ' ? '\u00A0' : char;
+                    letters.push(span);
+                }
+            }
+
+            // Replace container content with letter spans
+            container.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            letters.forEach(span => fragment.appendChild(span));
+            container.appendChild(fragment);
+
+            // Shuffle indices for random fade-out order
+            const indices = letters.map((_, i) => i);
+            for (let j = indices.length - 1; j > 0; j--) {
+                const k = Math.floor(Math.random() * (j + 1));
+                [indices[j], indices[k]] = [indices[k], indices[j]];
+            }
+
+            const totalDuration = 1.2; // seconds for the full animation per letter
+            const maxStagger = Math.min(1.5, letters.length * 0.03); // spread across letters
+
+            // Assign staggered delays based on shuffled order
+            const delayMap = new Array(letters.length);
+            indices.forEach((originalIndex, rank) => {
+                delayMap[originalIndex] = (rank / Math.max(letters.length - 1, 1)) * maxStagger;
+            });
+
+            letters.forEach((span, i) => {
+                span.style.animationDelay = `${delayMap[i]}s`;
+                span.style.animationDuration = `${totalDuration}s`;
+                span.classList.add('fade-letter-out');
+            });
+
+            // Clean up after all animations complete
+            const cleanupTime = (totalDuration + maxStagger + 0.2) * 1000;
+            setTimeout(() => {
+                container.classList.remove('active');
+                container.innerHTML = '';
+                this.elements.faceImage.classList.add('idle');
+                this.elements.faceImage.classList.remove('playing');
+            }, cleanupTime);
+        }, 2000);
     }
 
     async playSegment(segment) {
