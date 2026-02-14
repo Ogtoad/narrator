@@ -31,44 +31,54 @@ body {
      padding-top: 3rem;
      overflow-y: auto;
      position: relative;
+     --face-size: min(100px, 20vw);
+     --body-scale: 2.3;
  }
 
 .body-image-bg {
     position: absolute;
-    bottom: 2rem;
-    width: min(230px, 45vw);
+    top: 3rem;
+    left: 50%;
+    width: calc(var(--face-size) * var(--body-scale));
     height: auto;
     object-fit: contain;
     display: block;
-    opacity: 0.20;
+    transform: translateX(-50%);
+    opacity: 0.30;
     z-index: 0;
     flex-shrink: 0;
     pointer-events: none;
 }
 
 .face-image-bg {
-    width: min(100px, 20vw);
-    height: min(100px, 20vw);
-    opacity: 0.08;
+    position: absolute;
+    /* Center of face at 15% from top of body: body_top + 15% * body_height - face_size/2 */
+    top: calc(3rem + (var(--face-size) * var(--body-scale) * 0.008) - (var(--face-size) / 2));
+    left: 50%;
+    width: var(--face-size);
+    height: var(--face-size);
+    opacity: 1.20;
     z-index: 1;
-    transition: opacity 1.2s ease, transform 1.2s ease;
+    transition: opacity 1.2s ease;
     flex-shrink: 0;
-    animation: faceFloat 12s ease-in-out infinite;
+    transform: translateX(-50%);
+    transform-origin: center bottom;
+    animation: faceTilt 6s ease-in-out infinite alternate;
 }
 
 .face-image-bg.loading {
-    opacity: 0.15;
-    animation: faceBlink 3s ease-in-out infinite, faceFloat 12s ease-in-out infinite;
+    opacity: 0.45;
+    animation: faceBlink 3s ease-in-out infinite, faceTilt 6s ease-in-out infinite alternate;
 }
 
 .face-image-bg.playing {
-    opacity: 0.35;
-    animation: faceTalk 0.6s ease-in-out infinite, faceFloat 8s ease-in-out infinite;
+    opacity: 0.65;
+    animation: faceTalk 2s ease-in-out infinite;
 }
 
 .face-image-bg.idle {
-    opacity: 0.08;
-    animation: faceFloat 12s ease-in-out infinite;
+    opacity: 0.60;
+    animation: faceTilt 6s ease-in-out infinite alternate;
 }
 
 .narration-text {
@@ -221,7 +231,7 @@ body {
 .face-image {
     width: 120px;
     height: 120px;
-    opacity: 0.4;
+    opacity: 0.6;
     transition: opacity 0.3s ease, transform 0.3s ease;
     animation: float 4s ease-in-out infinite;
 }
@@ -234,12 +244,12 @@ body {
 
 .face-image.playing {
     opacity: 0.8;
-    transform: scale(1.2);
+    transform: scale(1.1);
 }
 
 .face-image.idle {
     opacity: 0.4;
-    transform: scale(1);
+    transform: scale(1.1);
 }
 
 @keyframes blink {
@@ -260,44 +270,25 @@ body {
     }
 }
 
-/* Slow drifting movement for idle face */
-@keyframes faceFloat {
-    0% {
-        transform: translate(0px, 0px) scale(0.85);
-    }
-    15% {
-        transform: translate(12px, -18px) scale(0.87);
-    }
-    30% {
-        transform: translate(-8px, -10px) scale(0.84);
-    }
-    50% {
-        transform: translate(-15px, 12px) scale(0.88);
-    }
-    70% {
-        transform: translate(10px, 8px) scale(0.83);
-    }
-    85% {
-        transform: translate(18px, -5px) scale(0.86);
-    }
-    100% {
-        transform: translate(0px, 0px) scale(0.85);
-    }
+/* Tilt side to side: -15deg to +15deg, alternate reverses */
+@keyframes faceTilt {
+    0%   { transform: translateX(-50%) rotate(-15deg); }
+    100% { transform: translateX(-50%) rotate(15deg); }
 }
 
-/* Subtle bobbing/pulsing while talking */
+/* Subtle bobbing/pulsing while talking - preserves translateX(-50%) for centering */
 @keyframes faceTalk {
     0%, 100% {
-        transform: scale(1.05);
+        transform: translateX(-50%) scale(1.05);
     }
     25% {
-        transform: scale(1.12) translateY(-3px);
+        transform: translateX(-50%) scale(1.12) translateY(-3px);
     }
     50% {
-        transform: scale(1.08) translateY(2px);
+        transform: translateX(-50%) scale(1.08) translateY(2px);
     }
     75% {
-        transform: scale(1.14) translateY(-2px);
+        transform: translateX(-50%) scale(1.14) translateY(-2px);
     }
 }
 
@@ -376,6 +367,7 @@ body {
 @media (max-width: 768px) {
     .narration-display {
         padding: 1.5rem 1rem;
+        --face-size: min(110px, 27.5vw);
     }
 
     .narration-text {
@@ -395,26 +387,12 @@ body {
         width: 100%;
     }
 
-    .body-image-bg {
-        width: min(180px, 45vw);
-    }
-
-    .face-image-bg {
-        width: min(110px, 27.5vw);
-        height: min(110px, 27.5vw);
-        animation: faceFloatMobile 12s ease-in-out infinite;
-    }
-
     .face-image-bg.loading {
-        animation: faceBlink 3s ease-in-out infinite, faceFloatMobile 12s ease-in-out infinite;
+        animation: faceBlink 3s ease-in-out infinite;
     }
 
     .face-image-bg.playing {
-        animation: faceTalkMobile 0.6s ease-in-out infinite, faceFloatMobile 8s ease-in-out infinite;
-    }
-
-    .face-image-bg.idle {
-        animation: faceFloatMobile 12s ease-in-out infinite;
+        animation: faceTalkMobile 0.6s ease-in-out infinite;
     }
 
     .face-image {
@@ -450,6 +428,7 @@ body {
 @media (max-width: 480px) {
     .narration-display {
         padding: 1rem 0.5rem;
+        --face-size: min(80px, 25vw);
     }
 
     .narration-text {
@@ -477,13 +456,7 @@ body {
         font-size: 0.8rem;
     }
 
-    .body-image-bg {
-        width: min(140px, 40vw);
-    }
-
     .face-image-bg {
-        width: min(80px, 25vw);
-        height: min(80px, 25vw);
     }
 
     .face-image {
@@ -513,13 +486,11 @@ body {
         font-size: 0.85rem;
     }
 
-    .body-image-bg {
-        width: min(120px, 38vw);
+    .narration-display {
+        --face-size: min(70px, 22.5vw);
     }
 
     .face-image-bg {
-        width: min(70px, 22.5vw);
-        height: min(70px, 22.5vw);
     }
 }
 
@@ -550,16 +521,16 @@ body {
 
 @keyframes faceTalkMobile {
     0%, 100% {
-        transform: scale(1.03);
+        transform: translateX(-50%) scale(1.03);
     }
     25% {
-        transform: scale(1.08) translateY(-2px);
+        transform: translateX(-50%) scale(1.08) translateY(-2px);
     }
     50% {
-        transform: scale(1.05) translateY(1px);
+        transform: translateX(-50%) scale(1.05) translateY(1px);
     }
     75% {
-        transform: scale(1.1) translateY(-1px);
+        transform: translateX(-50%) scale(1.1) translateY(-1px);
     }
 }
 
@@ -581,14 +552,9 @@ body {
     .face-image-bg {
         width: min(120px, 30vw);
         height: min(120px, 30vw);
-        animation: faceFloatMobile 12s ease-in-out infinite;
     }
 
     .face-image-bg.playing {
-        animation: faceTalkMobile 0.6s ease-in-out infinite, faceFloatMobile 8s ease-in-out infinite;
-    }
-
-    .face-image-bg.idle {
-        animation: faceFloatMobile 12s ease-in-out infinite;
+        animation: faceTalkMobile 0.8s ease-in-out infinite;
     }
 }
