@@ -9,7 +9,8 @@ class NarratorSync {
             narrationText: document.getElementById('narration-text'),
             messageInput: document.getElementById('message-input'),
             faceImage: document.getElementById('face-image-bg'),
-            form: document.getElementById('chat-form')
+            form: document.getElementById('chat-form'),
+            bgMusic: document.getElementById('bg-music')
         };
 
         this.state = {
@@ -21,9 +22,10 @@ class NarratorSync {
             requestInFlight: false,
             currentAudioUrl: null,
             abortController: null,
-            isAudioPlaying: false
+            isAudioPlaying: false,
+            bgMusicStarted: false
         };
-        
+
         this.init();
     }
 
@@ -65,7 +67,21 @@ class NarratorSync {
             this.updateFaceState();
             this.stopWordSync();
         });
-        
+
+        // Start background music on first user interaction with the input
+        const startBgMusic = () => {
+            if (!this.elements.bgMusic || this.state.bgMusicStarted) return;
+            this.state.bgMusicStarted = true;
+            this.elements.bgMusic.volume = 0.4;
+            const playPromise = this.elements.bgMusic.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {
+                    // If playback fails, allow retries on next interaction
+                    this.state.bgMusicStarted = false;
+                });
+            }
+        };
+
         // Handle potential audio errors
         this.elements.audioPlayer.addEventListener('error', (e) => {
             // Ignore errors when src is empty (e.g. during cleanup)
@@ -89,6 +105,9 @@ class NarratorSync {
                 }, delay);
             }
         });
+
+        this.elements.messageInput.addEventListener('focus', startBgMusic, { once: true });
+        this.elements.messageInput.addEventListener('click', startBgMusic, { once: true });
 
         // Capture any keydown on the document and redirect to input
         document.addEventListener('keydown', (e) => {
@@ -151,7 +170,7 @@ class NarratorSync {
 
         this.setLoadingState(true);
         this.clearNarration();
-        
+
         if (this.state.abortController) this.state.abortController.abort();
         this.state.abortController = new AbortController();
 
@@ -212,7 +231,7 @@ class NarratorSync {
 
     updateFaceState() {
         if (!this.elements.faceImage) return;
-        
+
         if (this.state.isAudioPlaying) {
             this.elements.faceImage.classList.add('playing');
             this.elements.faceImage.classList.remove('idle');
@@ -328,9 +347,9 @@ class NarratorSync {
         try {
             await this.loadAudio(audio, audio_type);
             this.calculateWordTimings();
-            
+
             await this.elements.audioPlayer.play();
-            
+
             // Wait for segment to finish
             await new Promise((resolve) => {
                 const onEnded = () => {
@@ -356,7 +375,7 @@ class NarratorSync {
         const binary = atob(base64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        
+
         const blob = new Blob([bytes], { type: mimeType });
         this.state.currentAudioUrl = URL.createObjectURL(blob);
         this.elements.audioPlayer.src = this.state.currentAudioUrl;
@@ -422,7 +441,7 @@ class NarratorSync {
             if (this.elements.audioPlayer.paused || this.elements.audioPlayer.ended) return;
 
             const currentTime = this.elements.audioPlayer.currentTime;
-            const wordIndex = this.state.wordTimings.findIndex(t => 
+            const wordIndex = this.state.wordTimings.findIndex(t =>
                 currentTime >= t.startTime && currentTime < t.endTime
             );
 

@@ -35,12 +35,12 @@ body {
 
 .body-image-bg {
     position: absolute;
-    bottom: 5rem;
-    width: min(200px, 40vw);
+    bottom: 2rem;
+    width: min(230px, 45vw);
     height: auto;
     object-fit: contain;
     display: block;
-    opacity: 0.15;
+    opacity: 0.20;
     z-index: 0;
     flex-shrink: 0;
     pointer-events: none;
