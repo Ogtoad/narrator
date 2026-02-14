@@ -30,13 +30,27 @@ body {
      padding: 2rem;
      padding-top: 3rem;
      overflow-y: auto;
+     position: relative;
  }
 
-.face-image-bg {
+.body-image-bg {
+    position: absolute;
+    bottom: 5rem;
     width: min(200px, 40vw);
-    height: min(200px, 40vw);
-    opacity: 0.08;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    opacity: 0.15;
     z-index: 0;
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+.face-image-bg {
+    width: min(100px, 20vw);
+    height: min(100px, 20vw);
+    opacity: 0.08;
+    z-index: 1;
     transition: opacity 1.2s ease, transform 1.2s ease;
     flex-shrink: 0;
     animation: faceFloat 12s ease-in-out infinite;
@@ -81,7 +95,7 @@ body {
 
 .narration-text.word-highlight {
     animation: wordPulse 0.1s ease;
-    
+
 }
 
 @keyframes wordPulse {
@@ -381,9 +395,13 @@ body {
         width: 100%;
     }
 
+    .body-image-bg {
+        width: min(180px, 45vw);
+    }
+
     .face-image-bg {
-        width: min(220px, 55vw);
-        height: min(220px, 55vw);
+        width: min(110px, 27.5vw);
+        height: min(110px, 27.5vw);
         animation: faceFloatMobile 12s ease-in-out infinite;
     }
 
@@ -459,9 +477,13 @@ body {
         font-size: 0.8rem;
     }
 
+    .body-image-bg {
+        width: min(140px, 40vw);
+    }
+
     .face-image-bg {
-        width: min(160px, 50vw);
-        height: min(160px, 50vw);
+        width: min(80px, 25vw);
+        height: min(80px, 25vw);
     }
 
     .face-image {
@@ -491,9 +513,13 @@ body {
         font-size: 0.85rem;
     }
 
+    .body-image-bg {
+        width: min(120px, 38vw);
+    }
+
     .face-image-bg {
-        width: min(140px, 45vw);
-        height: min(140px, 45vw);
+        width: min(70px, 22.5vw);
+        height: min(70px, 22.5vw);
     }
 }
 
